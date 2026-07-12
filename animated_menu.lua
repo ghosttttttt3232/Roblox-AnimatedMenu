@@ -1,7 +1,7 @@
 --[[
   Animated GUI Menu - Roblox
-  Loadstring example (after upload to GitHub raw):
-  loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/animated_menu.lua"))()
+  Loadstring:
+  loadstring(game:HttpGet("https://raw.githubusercontent.com/ghosttttttt3232/Roblox-AnimatedMenu/master/animated_menu.lua"))()
 --]]
 
 local AnimatedMenu = {}
@@ -18,21 +18,28 @@ function AnimatedMenu.new(title, options)
 end
 
 function AnimatedMenu:Create()
-    -- Ensure we're in a LocalScript context
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "AnimatedMenu"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.DisplayOrder = 999
+
+    -- Try CoreGui first (executors), fallback to PlayerGui
     local Players = game:GetService("Players")
     local player = Players.LocalPlayer
-    if not player then
-        warn("AnimatedMenu deve essere eseguito in un LocalScript")
-        return
+    local success, parent = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+    if success and parent then
+        ScreenGui.Parent = parent
+    elseif player then
+        local playerGui = player:WaitForChild("PlayerGui")
+        ScreenGui.Parent = playerGui
+    else
+        ScreenGui.Parent = game:GetService("CoreGui")
     end
-    local playerGui = player:WaitForChild("PlayerGui")
 
-    -- ScreenGui
-    self.ScreenGui = Instance.new("ScreenGui")
-    self.ScreenGui.Name = "AnimatedMenu"
-    self.ScreenGui.ResetOnSpawn = false
-    self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    self.ScreenGui.Parent = playerGui
+    self.ScreenGui = ScreenGui
 
     -- Main Frame
     local frame = Instance.new("Frame")
