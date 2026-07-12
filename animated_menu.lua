@@ -1,372 +1,195 @@
 --[[
-  EULEN STYLE - Safe Edition (Xeno compatible, no crash)
+  EULEN MINIMAL - Xeno test version
   loadstring(game:HttpGet("https://raw.githubusercontent.com/ghosttttttt3232/Roblox-AnimatedMenu/master/animated_menu.lua"))()
 --]]
 
-local ok, err = pcall(function()
-
+pcall(function()
 task.wait(5)
 
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
 if not Drawing or not Drawing.new then return end
 
--- Config
-local Cfg = { esp=false, box=true, aim=false, fov=100, ws=16, jp=50, fb=false }
-local menuOn = false
+-- Test drawing at startup
+local test = Drawing.new("Text")
+test.Text = "LOADING EULEN..."
+test.Position = Vector2.new(400, 300)
+test.Size = 20
+test.Visible = true
+task.wait(0.5)
+test.Visible = false
+
+-- Pre-create drawings
+local L = {}
+for i = 1, 20 do L[i] = Drawing.new("Line") end
+local T = {}
+for i = 1, 20 do T[i] = Drawing.new("Text"); T[i].Outline = true; T[i].Center = true end
+
+local open = false
 local tab = 1
-local mx, my = 0, 0
 local cx, cy = 300, 200
-local drag = false
-local dx, dy = 0, 0
+local drag, dx, dy = false, 0, 0
 local mDown = false
-local keyB = Enum.KeyCode.RightShift
+local keyToggle = Enum.KeyCode.RightShift
+local Cfg = { esp = false, aim = false, ws = 16 }
+local optHover = 0
 
--- Pre-create ALL drawings (fix amount, no runtime creation)
-local D = {}
-for i = 1, 50 do
-    D[i] = Drawing.new("Line")
-    D[i].Visible = false
-end
-for i = 51, 70 do
-    D[i] = Drawing.new("Text")
-    D[i].Visible = false
-    D[i].Outline = true
-    D[i].Center = true
-end
+-- Keybind
+if not isfile or not isfile("eulen_key.txt") then
+    local kt = Drawing.new("Text")
+    kt.Text = "Press any key to bind"
+    kt.Position = Vector2.new(400, 285)
+    kt.Size = 18
+    kt.Color = Color3.fromRGB(212,135,106)
+    kt.Visible = true
 
-local L = 1
-local function line(a, from, to, thick, color)
-    local l = D[a]
-    if not l then return end
-    l.From = from
-    l.To = to
-    l.Thickness = thick or 1
-    l.Color = color or Color3.fromRGB(28,28,36)
-    l.Transparency = 0
-    l.Visible = true
-end
+    local kw = Drawing.new("Text")
+    kw.Text = "WAITING..."
+    kw.Position = Vector2.new(400, 315)
+    kw.Size = 14
+    kw.Color = Color3.fromRGB(155,155,165)
+    kw.Visible = true
 
-local function txt(n, pos, text, size, color)
-    local t = D[n]
-    if not t then return end
-    t.Position = pos
-    t.Text = text
-    t.Size = size or 12
-    t.Color = color or Color3.fromRGB(155,155,165)
-    t.Visible = true
-end
-
-local function hideAll()
-    for i = 1, 70 do D[i].Visible = false end
-end
-
--- ESP limits
-local espPlayers = {}
-local function espClear()
-    for _, v in pairs(espPlayers) do
-        for _, d in pairs(v) do
-            if d then d.Visible = false end
-        end
-    end
-    espPlayers = {}
-end
-
-local function ensureESP(p)
-    if espPlayers[p] then return end
-    local d = {}
-    d[1] = Drawing.new("Line"); d[2] = Drawing.new("Line"); d[3] = Drawing.new("Line"); d[4] = Drawing.new("Line")
-    d[5] = Drawing.new("Text"); d[6] = Drawing.new("Text"); d[7] = Drawing.new("Text"); d[8] = Drawing.new("Line")
-    for i = 1, 8 do d[i].Visible = false end
-    d[5].Outline = true; d[5].Center = true
-    d[6].Outline = true; d[6].Center = true
-    d[7].Outline = true; d[7].Center = true
-    d[8].Transparency = 0.5
-    espPlayers[p] = d
-end
-
--- Functions
-local function updateESP()
-    if not Cfg.esp then
-        for _, v in pairs(espPlayers) do for i = 1, 8 do v[i].Visible = false end end
-        return
-    end
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP then
-            ensureESP(p)
-            local d = espPlayers[p]
-            local char, hrp, head, hum = p.Character, nil, nil, nil
-            if char then
-                hrp = char:FindFirstChild("HumanoidRootPart")
-                head = char:FindFirstChild("Head")
-                hum = char:FindFirstChild("Humanoid")
-            end
-
-            local show = hrp and head and hum and hum.Health > 0
-
-            if show then
-                local dist = 9999
-                local myChar = LP.Character
-                local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                if myHRP then dist = (hrp.Position - myHRP.Position).Magnitude end
-                if dist > 1000 then show = false end
-            end
-
-            if show then
-                local sp, on = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,2,0))
-                local sp2, _ = Camera:WorldToViewportPoint(hrp.Position)
-                local vsp = Vector2.new(sp.X, sp.Y)
-                local vsp2 = Vector2.new(sp2.X, sp2.Y)
-
-                if on then
-                    -- Box (simple)
-                    if Cfg.box then
-                        local s = char:GetExtentsSize()
-                        local cf = hrp.CFrame
-                        local hw, hh = s.X/2, s.Y/2
-                        local c1 = Camera:WorldToViewportPoint((cf * CFrame.new(-hw, hh, 0)).p)
-                        local c2 = Camera:WorldToViewportPoint((cf * CFrame.new(hw, hh, 0)).p)
-                        local c3 = Camera:WorldToViewportPoint((cf * CFrame.new(hw, -hh, 0)).p)
-                        local c4 = Camera:WorldToViewportPoint((cf * CFrame.new(-hw, -hh, 0)).p)
-                        if c1.Z > 0 and c2.Z > 0 and c3.Z > 0 and c4.Z > 0 then
-                            local minX = math.min(c1.X,c2.X,c3.X,c4.X)
-                            local maxX = math.max(c1.X,c2.X,c3.X,c4.X)
-                            local minY = math.min(c1.Y,c2.Y,c3.Y,c4.Y)
-                            local maxY = math.max(c1.Y,c2.Y,c3.Y,c4.Y)
-                            d[1].From = Vector2.new(minX,minY); d[1].To = Vector2.new(maxX,minY)
-                            d[2].From = Vector2.new(maxX,minY); d[2].To = Vector2.new(maxX,maxY)
-                            d[3].From = Vector2.new(maxX,maxY); d[3].To = Vector2.new(minX,maxY)
-                            d[4].From = Vector2.new(minX,maxY); d[4].To = Vector2.new(minX,minY)
-                            for i = 1,4 do d[i].Visible = true; d[i].Thickness = 2; d[i].Color = Color3.fromRGB(0,255,136) end
-                        end
-                    end
-
-                    -- Name
-                    d[5].Position = vsp2 - Vector2.new(0, 40)
-                    d[5].Text = p.Name
-                    d[5].Visible = true
-
-                    -- Health
-                    d[7].Position = vsp2 - Vector2.new(0, 25)
-                    d[7].Text = "HP: " .. math.floor(hum.Health)
-                    d[7].Color = hum.Health > 50 and Color3.fromRGB(74,224,160) or (hum.Health > 25 and Color3.fromRGB(255,190,60) or Color3.fromRGB(255,77,106))
-                    d[7].Visible = true
-
-                    -- Line
-                    d[8].From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                    d[8].To = vsp2
-                    d[8].Visible = true
-                    d[8].Color = Color3.fromRGB(212,135,106)
-                else
-                    for i = 1,8 do d[i].Visible = false end
-                end
-            else
-                for i = 1,8 do d[i].Visible = false end
+    local conn = UIS.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.Keyboard then
+            local kn = inp.KeyCode.Name
+            if kn ~= "Unknown" then
+                keyToggle = inp.KeyCode
+                kw.Text = kn
+                kw.Color = Color3.fromRGB(74,224,160)
+                if writefile then pcall(function() writefile("eulen_key.txt", kn) end) end
+                task.wait(1.5)
+                kt.Visible = false; kw.Visible = false
+                conn:Disconnect()
+                open = true
             end
         end
-    end
+    end)
+else
+    open = true
 end
 
--- Aimbot
-local function aimTarget()
-    if not Cfg.aim then return end
-    local mp = UIS:GetMouseLocation()
-    local best, bd = nil, Cfg.fov
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local h = p.Character:FindFirstChild("Head")
-            if h then
-                local sp, on = Camera:WorldToViewportPoint(h.Position)
-                if on then
-                    local d = (Vector2.new(sp.X, sp.Y) - mp).Magnitude
-                    if d < bd then bd = d; best = p end
-                end
-            end
-        end
-    end
-    if best and best.Character and best.Character:FindFirstChild("Head") then
-        local h = best.Character.Head
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, h.Position)
-    end
-end
-
--- Option drawing indices (reused per tab, since only 1 tab visible at a time)
--- Lines: D[11-12] = opt bg, D[13-14] = toggle bg
--- Texts: D[56-57] = opt label, D[58-59] = toggle text
-
-local optsLayout = {
-    [1] = {{"ESP Enabled","tg","esp"}, {"Box","tg","box"}},
-    [2] = {{"Aimbot","tg","aim"}, {"FOV: "..Cfg.fov,"sl","fov"}},
-    [3] = {{"WalkSpeed","sp","ws"}, {"JumpPower","sp","jp"}},
-    [4] = {{"Fullbright","tg","fb"}, {"Key: ","",""}},
+-- Menu options per tab
+local opts = {
+    ["ESP"] = { {"ESP On/Off", "esp"}, {"WS: "..Cfg.ws, "ws"} },
+    ["AIM"] = { {"Aimbot On/Off", "aim"} },
+    ["+"] = { {"Key: "..tostring(keyToggle.Name), "key"} },
 }
 
--- Render
+local tabNames = {"ESP", "AIM", "+"}
+
+function hide()
+    for i = 1, 20 do L[i].Visible = false; T[i].Visible = false end
+end
+
 RS.RenderStepped:Connect(function()
-    mx, my = UIS:GetMouseLocation().X, UIS:GetMouseLocation().Y
+    local mx, my = UIS:GetMouseLocation().X, UIS:GetMouseLocation().Y
+    if drag then cx = mx - dx; cy = my - dy end
 
-    if drag then
-        cx = mx - dx
-        cy = my - dy
-    end
+    if open then
+        local w, h = 280, 50 + #tabNames * 26 + #opts[tabNames[tab]] * 40 + 20
+        local px, py = cx, cy
 
-    if menuOn then
-        local w, h = 300, 50 + 4 * 36 + 10
-        local posX, posY = cx, cy
+        -- Box
+        L[1].From = Vector2.new(px,py); L[1].To = Vector2.new(px+w,py); L[1].Visible = true
+        L[2].From = Vector2.new(px+w,py); L[2].To = Vector2.new(px+w,py+h); L[2].Visible = true
+        L[3].From = Vector2.new(px+w,py+h); L[3].To = Vector2.new(px,py+h); L[3].Visible = true
+        L[4].From = Vector2.new(px,py+h); L[4].To = Vector2.new(px,py); L[4].Visible = true
 
-        -- Box border (D1-D4)
-        line(1, Vector2.new(posX,posY), Vector2.new(posX+w,posY), 1)
-        line(2, Vector2.new(posX+w,posY), Vector2.new(posX+w,posY+h), 1)
-        line(3, Vector2.new(posX+w,posY+h), Vector2.new(posX,posY+h), 1)
-        line(4, Vector2.new(posX,posY+h), Vector2.new(posX,posY), 1)
-
-        -- Title (D51 text)
-        D[51].Position = Vector2.new(posX + w/2, posY + 12)
-        D[51].Text = "EULEN"
-        D[51].Color = Color3.fromRGB(212,135,106)
-        D[51].Size = 16
-        D[51].Visible = true
+        -- Title
+        T[1].Position = Vector2.new(px + w/2, py + 12)
+        T[1].Text = "EULEN"
+        T[1].Color = Color3.fromRGB(212,135,106)
+        T[1].Size = 16
+        T[1].Visible = true
 
         -- Tabs
-        local tabs = {"ESP", "AIM", "PLAYER", "MISC"}
-        for i = 1, 4 do
-            local tx = posX + 10 + (i-1) * 72
-            line(5+i, Vector2.new(tx, posY+30), Vector2.new(tx+65, posY+30), 22, i == tab and Color3.fromRGB(26,26,34) or Color3.fromRGB(18,18,24))
-            D[52+i] = D[52+i] or Drawing.new("Text")
-            D[52+i].Position = Vector2.new(tx+32, posY+21)
-            D[52+i].Text = tabs[i]
-            D[52+i].Size = 11
-            D[52+i].Center = true
-            D[52+i].Outline = true
-            D[52+i].Color = i == tab and Color3.fromRGB(212,135,106) or Color3.fromRGB(155,155,165)
-            D[52+i].Visible = true
+        for i = 1, #tabNames do
+            local tx = px + 10 + (i-1) * 85
+            L[10+i].From = Vector2.new(tx, py+30); L[10+i].To = Vector2.new(tx+78, py+30)
+            L[10+i].Thickness = 22
+            L[10+i].Color = i == tab and Color3.fromRGB(26,26,34) or Color3.fromRGB(18,18,24)
+            L[10+i].Visible = true
+
+            T[10+i].Position = Vector2.new(tx+39, py+21)
+            T[10+i].Text = tabNames[i]
+            T[10+i].Size = 11
+            T[10+i].Color = i == tab and Color3.fromRGB(212,135,106) or Color3.fromRGB(155,155,165)
+            T[10+i].Visible = true
         end
 
         -- Options
-        local opts = optsLayout[tab]
-        local oy = posY + 60
-        local oi = 0
+        local oy = py + 58
+        optHover = 0
+        for oi = 1, #opts[tabNames[tab]] do
+            local o = opts[tabNames[tab]][oi]
+            local hov = mx >= px+10 and mx <= px+w-10 and my >= oy and my <= oy+35
 
-        for _, opt in ipairs(opts) do
-            oi = oi + 1
-            local bgIdx = 10 + oi          -- D11, D12
-            local txtIdx = 56 + oi         -- D57, D58
-            local toggleIdx = 13 + oi      -- D13, D14
-            local toggleTxtIdx = 58 + oi   -- D59, D60
+            L[14+oi].From = Vector2.new(px+10, oy+17); L[14+oi].To = Vector2.new(px+w-10, oy+17)
+            L[14+oi].Thickness = 30
+            L[14+oi].Color = hov and Color3.fromRGB(26,26,34) or Color3.fromRGB(18,18,24)
+            L[14+oi].Visible = true
 
-            -- Background
-            line(bgIdx, Vector2.new(posX+10, oy+12), Vector2.new(posX+w-10, oy+12), 30, Color3.fromRGB(20,20,26))
+            T[14+oi].Position = Vector2.new(px+20, oy+8)
+            T[14+oi].Text = o[1]
+            T[14+oi].Size = 11
+            T[14+oi].Center = false
+            T[14+oi].Color = hov and Color3.fromRGB(235,235,240) or Color3.fromRGB(155,155,165)
+            T[14+oi].Visible = true
 
-            -- Label text
-            D[txtIdx] = D[txtIdx] or Drawing.new("Text")
-            D[txtIdx].Position = Vector2.new(posX+18, oy+4)
-            D[txtIdx].Text = opt[1]
-            D[txtIdx].Size = 11
-            D[txtIdx].Center = false
-            D[txtIdx].Outline = true
-            D[txtIdx].Color = Color3.fromRGB(155,155,165)
-            D[txtIdx].Visible = true
-
-            if opt[2] == "tg" then
-                local val = Cfg[opt[3]]
-                local tox = posX + w - 30
-                line(toggleIdx, Vector2.new(tox-13, oy+12), Vector2.new(tox+13, oy+12), 16, val and Color3.fromRGB(74,224,160) or Color3.fromRGB(40,40,50))
-                D[toggleTxtIdx] = D[toggleTxtIdx] or Drawing.new("Text")
-                D[toggleTxtIdx].Position = Vector2.new(tox, oy+5)
-                D[toggleTxtIdx].Text = val and "ON" or "OFF"
-                D[toggleTxtIdx].Size = 9
-                D[toggleTxtIdx].Center = true
-                D[toggleTxtIdx].Outline = true
-                D[toggleTxtIdx].Color = val and Color3.fromRGB(74,224,160) or Color3.fromRGB(255,77,106)
-                D[toggleTxtIdx].Visible = true
-            elseif opt[2] == "sl" then
-                D[toggleTxtIdx] = D[toggleTxtIdx] or Drawing.new("Text")
-                D[toggleTxtIdx].Position = Vector2.new(posX + w - 30, oy+4)
-                D[toggleTxtIdx].Text = tostring(Cfg[opt[3]])
-                D[toggleTxtIdx].Size = 11
-                D[toggleTxtIdx].Center = true
-                D[toggleTxtIdx].Outline = true
-                D[toggleTxtIdx].Visible = true
-            end
-            oy = oy + 36
+            if hov then optHover = oi end
+            oy = oy + 40
         end
     else
-        hideAll()
-    end
-
-    -- Aimbot
-    if Cfg.aim and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        aimTarget()
-    end
-
-    -- ESP
-    updateESP()
-
-    -- Fullbright
-    if Cfg.fb then
-        game:GetService("Lighting").Brightness = 2
-        game:GetService("Lighting").GlobalShadows = false
+        hide()
     end
 end)
 
--- Click handling
 UIS.InputBegan:Connect(function(inp, gp)
     if gp then return end
-
     if inp.UserInputType == Enum.UserInputType.MouseButton1 then
         mDown = true
-        if menuOn then
-            local w, h = 300, 50 + 4 * 36 + 10
-            -- Tabs
-            for i = 1, 4 do
-                local tx = cx + 10 + (i-1) * 72
-                if mx >= tx and mx <= tx + 65 and my >= cy + 30 and my <= cy + 52 then
+        local mx, my = UIS:GetMouseLocation().X, UIS:GetMouseLocation().Y
+        if open then
+            -- Tab click
+            for i = 1, #tabNames do
+                local tx = cx + 10 + (i-1) * 85
+                if mx >= tx and mx <= tx+78 and my >= cy+30 and my <= cy+52 then
                     tab = i; return
                 end
             end
-            -- Toggle options
-            local oy = cy + 60
-            local opts = optsLayout[tab]
-            for _, opt in ipairs(opts) do
-                if mx >= cx + 10 and mx <= cx + 290 and my >= oy and my <= oy + 30 then
-                    local key = opt[3]
+            -- Option click
+            local oy = cy + 58
+            for oi = 1, #opts[tabNames[tab]] do
+                if mx >= cx+10 and mx <= cx+270 and my >= oy and my <= oy+35 then
+                    local key = opts[tabNames[tab]][oi][2]
                     if key == "esp" then Cfg.esp = not Cfg.esp
-                    elseif key == "box" then Cfg.box = not Cfg.box
                     elseif key == "aim" then Cfg.aim = not Cfg.aim
-                    elseif key == "fb" then Cfg.fb = not Cfg.fb
-                    elseif key == "ws" then
-                        Cfg.ws = Cfg.ws >= 200 and 16 or Cfg.ws + 10
-                        if LP.Character and LP.Character:FindFirstChild("Humanoid") then
-                            LP.Character.Humanoid.WalkSpeed = Cfg.ws
-                        end
-                    elseif key == "jp" then
-                        Cfg.jp = Cfg.jp >= 300 and 50 or Cfg.jp + 25
-                        if LP.Character and LP.Character:FindFirstChild("Humanoid") then
-                            LP.Character.Humanoid.JumpPower = Cfg.jp
-                        end
-                    elseif key == "fov" then
-                        Cfg.fov = Cfg.fov >= 500 and 50 or Cfg.fov + 25
+                    elseif key == "ws" then Cfg.ws = Cfg.ws >= 200 and 16 or Cfg.ws + 10; opts[tabNames[tab]][oi][1] = "WS: "..Cfg.ws
+                    elseif key == "key" then
+                        local kt = Drawing.new("Text"); kt.Text = "Press any key"; kt.Position = Vector2.new(400,300); kt.Size = 16; kt.Visible = true
+                        local conn = UIS.InputBegan:Connect(function(i2)
+                            if i2.UserInputType == Enum.UserInputType.Keyboard then
+                                keyToggle = i2.KeyCode; opts[tabNames[tab]][oi][1] = "Key: "..i2.KeyCode.Name
+                                kt.Visible = false; conn:Disconnect()
+                            end
+                        end)
                     end
                     return
                 end
-                oy = oy + 36
+                oy = oy + 40
             end
-            -- Drag
-            if my >= cy and my <= cy + 26 then
+            -- Drag title
+            if my >= cy and my <= cy+26 then
                 drag = true; dx = mx - cx; dy = my - cy; return
             end
         end
         drag = true; dx = mx - cx; dy = my - cy
     end
-
-    if inp.KeyCode == keyB then
-        menuOn = not menuOn
-        if not menuOn then hideAll() end
+    if inp.KeyCode == keyToggle then
+        open = not open
+        if not open then hide() end
     end
 end)
 
@@ -375,43 +198,4 @@ UIS.InputEnded:Connect(function(inp)
         mDown = false; drag = false
     end
 end)
-
--- Keybind prompt
-local kpTitle, kpWait
-if not isfile or not isfile("eulen_key.txt") then
-    hideAll()
-    kpTitle = Drawing.new("Text"); kpTitle.Visible = true; kpTitle.Center = true; kpTitle.Outline = true
-    kpTitle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2 - 10)
-    kpTitle.Text = "Press any key to bind"
-    kpTitle.Color = Color3.fromRGB(212,135,106)
-    kpTitle.Size = 18
-
-    kpWait = Drawing.new("Text"); kpWait.Visible = true; kpWait.Center = true; kpWait.Outline = true
-    kpWait.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2 + 15)
-    kpWait.Text = "WAITING..."
-    kpWait.Color = Color3.fromRGB(155,155,165)
-    kpWait.Size = 14
-
-    local conn = UIS.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.Keyboard then
-            local kn = inp.KeyCode.Name
-            if kn ~= "Unknown" then
-                keyB = inp.KeyCode
-                kpWait.Text = kn; kpWait.Color = Color3.fromRGB(74,224,160)
-                if writefile then pcall(function() writefile("eulen_key.txt", kn) end) end
-                task.wait(1.5)
-                kpTitle.Visible = false; kpWait.Visible = false
-                conn:Disconnect()
-                menuOn = true
-            end
-        end
-    end)
-else
-    menuOn = true
-end
-
 end)
-
-if not ok then
-    warn(tostring(err))
-end
