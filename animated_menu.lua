@@ -195,6 +195,17 @@ local function aimTarget()
     end
 end
 
+-- Option drawing indices (reused per tab, since only 1 tab visible at a time)
+-- Lines: D[11-12] = opt bg, D[13-14] = toggle bg
+-- Texts: D[56-57] = opt label, D[58-59] = toggle text
+
+local optsLayout = {
+    [1] = {{"ESP Enabled","tg","esp"}, {"Box","tg","box"}},
+    [2] = {{"Aimbot","tg","aim"}, {"FOV: "..Cfg.fov,"sl","fov"}},
+    [3] = {{"WalkSpeed","sp","ws"}, {"JumpPower","sp","jp"}},
+    [4] = {{"Fullbright","tg","fb"}, {"Key: ","",""}},
+}
+
 -- Render
 RS.RenderStepped:Connect(function()
     mx, my = UIS:GetMouseLocation().X, UIS:GetMouseLocation().Y
@@ -208,13 +219,13 @@ RS.RenderStepped:Connect(function()
         local w, h = 300, 50 + 4 * 36 + 10
         local posX, posY = cx, cy
 
-        -- Box border
+        -- Box border (D1-D4)
         line(1, Vector2.new(posX,posY), Vector2.new(posX+w,posY), 1)
         line(2, Vector2.new(posX+w,posY), Vector2.new(posX+w,posY+h), 1)
         line(3, Vector2.new(posX+w,posY+h), Vector2.new(posX,posY+h), 1)
         line(4, Vector2.new(posX,posY+h), Vector2.new(posX,posY), 1)
 
-        -- Title
+        -- Title (D51 text)
         D[51].Position = Vector2.new(posX + w/2, posY + 12)
         D[51].Text = "EULEN"
         D[51].Color = Color3.fromRGB(212,135,106)
@@ -225,56 +236,62 @@ RS.RenderStepped:Connect(function()
         local tabs = {"ESP", "AIM", "PLAYER", "MISC"}
         for i = 1, 4 do
             local tx = posX + 10 + (i-1) * 72
-            line(10+i, Vector2.new(tx, posY+30), Vector2.new(tx+65, posY+30), 22, i == tab and Color3.fromRGB(26,26,34) or Color3.fromRGB(18,18,24))
-            D[55+i] and (function()
-                D[55+i].Position = Vector2.new(tx+32, posY+21)
-                D[55+i].Text = tabs[i]
-                D[55+i].Size = 11
-                D[55+i].Color = i == tab and Color3.fromRGB(212,135,106) or Color3.fromRGB(155,155,165)
-                D[55+i].Visible = true
-            end)()
+            line(5+i, Vector2.new(tx, posY+30), Vector2.new(tx+65, posY+30), 22, i == tab and Color3.fromRGB(26,26,34) or Color3.fromRGB(18,18,24))
+            D[52+i] = D[52+i] or Drawing.new("Text")
+            D[52+i].Position = Vector2.new(tx+32, posY+21)
+            D[52+i].Text = tabs[i]
+            D[52+i].Size = 11
+            D[52+i].Center = true
+            D[52+i].Outline = true
+            D[52+i].Color = i == tab and Color3.fromRGB(212,135,106) or Color3.fromRGB(155,155,165)
+            D[52+i].Visible = true
         end
 
         -- Options
-        local opts = {
-            [1] = {{"ESP Enabled","tg","esp"}, {"Box","tg","box"}, {"","",""}},
-            [2] = {{"Aimbot","tg","aim"}, {"FOV: "..Cfg.fov,"sl","fov"}, {"","",""}},
-            [3] = {{"WalkSpeed","sp","ws"}, {"JumpPower","sp","jp"}, {"","",""}},
-            [4] = {{"Fullbright","tg","fb"}, {"Key: "..tostring(keyB.Name or "RightShift"),"",""}, {"","",""}},
-        }
-
+        local opts = optsLayout[tab]
         local oy = posY + 60
-        for _, opt in pairs(opts[tab]) do
-            if opt[1] ~= "" then
-                line(100+_*10, Vector2.new(posX+10, oy+12), Vector2.new(posX+w-10, oy+12), 30, Color3.fromRGB(20,20,26))
+        local oi = 0
 
-                D[60+_*10] and (function()
-                    D[60+_*10].Position = Vector2.new(posX+18, oy+4)
-                    D[60+_*10].Text = opt[1]
-                    D[60+_*10].Size = 11
-                    D[60+_*10].Color = Color3.fromRGB(155,155,165)
-                    D[60+_*10].Visible = true
-                end)()
+        for _, opt in ipairs(opts) do
+            oi = oi + 1
+            local bgIdx = 10 + oi          -- D11, D12
+            local txtIdx = 56 + oi         -- D57, D58
+            local toggleIdx = 13 + oi      -- D13, D14
+            local toggleTxtIdx = 58 + oi   -- D59, D60
 
-                if opt[2] == "tg" then
-                    local val = Cfg[opt[3]]
-                    local tox = posX + w - 30
-                    line(200+_*10, Vector2.new(tox-13, oy+12), Vector2.new(tox+13, oy+12), 16, val and Color3.fromRGB(74,224,160) or Color3.fromRGB(40,40,50))
-                    D[65+_*10] and (function()
-                        D[65+_*10].Position = Vector2.new(tox, oy+5)
-                        D[65+_*10].Text = val and "ON" or "OFF"
-                        D[65+_*10].Size = 9
-                        D[65+_*10].Color = val and Color3.fromRGB(74,224,160) or Color3.fromRGB(255,77,106)
-                        D[65+_*10].Visible = true
-                    end)()
-                elseif opt[2] == "sl" then
-                    D[65+_*10] and (function()
-                        D[65+_*10].Position = Vector2.new(posX + w - 30, oy+4)
-                        D[65+_*10].Text = tostring(Cfg[opt[3]])
-                        D[65+_*10].Size = 11
-                        D[65+_*10].Visible = true
-                    end)()
-                end
+            -- Background
+            line(bgIdx, Vector2.new(posX+10, oy+12), Vector2.new(posX+w-10, oy+12), 30, Color3.fromRGB(20,20,26))
+
+            -- Label text
+            D[txtIdx] = D[txtIdx] or Drawing.new("Text")
+            D[txtIdx].Position = Vector2.new(posX+18, oy+4)
+            D[txtIdx].Text = opt[1]
+            D[txtIdx].Size = 11
+            D[txtIdx].Center = false
+            D[txtIdx].Outline = true
+            D[txtIdx].Color = Color3.fromRGB(155,155,165)
+            D[txtIdx].Visible = true
+
+            if opt[2] == "tg" then
+                local val = Cfg[opt[3]]
+                local tox = posX + w - 30
+                line(toggleIdx, Vector2.new(tox-13, oy+12), Vector2.new(tox+13, oy+12), 16, val and Color3.fromRGB(74,224,160) or Color3.fromRGB(40,40,50))
+                D[toggleTxtIdx] = D[toggleTxtIdx] or Drawing.new("Text")
+                D[toggleTxtIdx].Position = Vector2.new(tox, oy+5)
+                D[toggleTxtIdx].Text = val and "ON" or "OFF"
+                D[toggleTxtIdx].Size = 9
+                D[toggleTxtIdx].Center = true
+                D[toggleTxtIdx].Outline = true
+                D[toggleTxtIdx].Color = val and Color3.fromRGB(74,224,160) or Color3.fromRGB(255,77,106)
+                D[toggleTxtIdx].Visible = true
+            elseif opt[2] == "sl" then
+                D[toggleTxtIdx] = D[toggleTxtIdx] or Drawing.new("Text")
+                D[toggleTxtIdx].Position = Vector2.new(posX + w - 30, oy+4)
+                D[toggleTxtIdx].Text = tostring(Cfg[opt[3]])
+                D[toggleTxtIdx].Size = 11
+                D[toggleTxtIdx].Center = true
+                D[toggleTxtIdx].Outline = true
+                D[toggleTxtIdx].Visible = true
             end
             oy = oy + 36
         end
@@ -314,15 +331,10 @@ UIS.InputBegan:Connect(function(inp, gp)
             end
             -- Toggle options
             local oy = cy + 60
-            local opts = {
-                [1] = {{"","esp"}, {"","box"}},
-                [2] = {{"","aim"}, {"","fov"}},
-                [3] = {{"","ws"}, {"","jp"}},
-                [4] = {{"","fb"}, {"",""}},
-            }
-            for _, opt in pairs(opts[tab]) do
+            local opts = optsLayout[tab]
+            for _, opt in ipairs(opts) do
                 if mx >= cx + 10 and mx <= cx + 290 and my >= oy and my <= oy + 30 then
-                    local key = opt[2]
+                    local key = opt[3]
                     if key == "esp" then Cfg.esp = not Cfg.esp
                     elseif key == "box" then Cfg.box = not Cfg.box
                     elseif key == "aim" then Cfg.aim = not Cfg.aim
