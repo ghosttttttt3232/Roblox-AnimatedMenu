@@ -1,8 +1,9 @@
 --[[
-  Animated GUI Menu - Roblox
-  Loadstring:
+  Animated GUI Menu - Roblox Executor
   loadstring(game:HttpGet("https://raw.githubusercontent.com/ghosttttttt3232/Roblox-AnimatedMenu/master/animated_menu.lua"))()
 --]]
+
+task.wait(3)
 
 local AnimatedMenu = {}
 AnimatedMenu.__index = AnimatedMenu
@@ -17,31 +18,38 @@ function AnimatedMenu.new(title, options)
     return self
 end
 
-function AnimatedMenu:Create()
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "AnimatedMenu"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.DisplayOrder = 999
+function AnimatedMenu:GetParent()
+    local parent
+    local success
 
-    -- Try CoreGui first (executors), fallback to PlayerGui
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
-    local success, parent = pcall(function()
-        return game:GetService("CoreGui")
+    success, parent = pcall(gethui)
+    if success and parent then return parent end
+
+    success, parent = pcall(function() return syn and syn.protect_gui and game:GetService("CoreGui") end)
+    if success and parent then return parent end
+
+    success, parent = pcall(function() return game:GetService("CoreGui") end)
+    if success and parent then return parent end
+
+    success, parent = pcall(function()
+        local p = game:GetService("Players").LocalPlayer
+        return p and p:WaitForChild("PlayerGui")
     end)
-    if success and parent then
-        ScreenGui.Parent = parent
-    elseif player then
-        local playerGui = player:WaitForChild("PlayerGui")
-        ScreenGui.Parent = playerGui
-    else
-        ScreenGui.Parent = game:GetService("CoreGui")
-    end
+    if success and parent then return parent end
 
-    self.ScreenGui = ScreenGui
+    return game:GetService("CoreGui")
+end
 
-    -- Main Frame
+function AnimatedMenu:Create()
+    local parent = self:GetParent()
+
+    self.ScreenGui = Instance.new("ScreenGui")
+    self.ScreenGui.Name = "AnimatedMenu"
+    self.ScreenGui.ResetOnSpawn = false
+    self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.ScreenGui.DisplayOrder = 999
+    self.ScreenGui.Parent = parent
+
     local frame = Instance.new("Frame")
     frame.Name = "MainFrame"
     frame.Size = UDim2.new(0, 400, 0, 500)
@@ -53,7 +61,6 @@ function AnimatedMenu:Create()
     frame.Visible = false
     frame.Parent = self.ScreenGui
 
-    -- Drop shadow
     local shadow = Instance.new("ImageLabel")
     shadow.Name = "Shadow"
     shadow.Size = UDim2.new(1, 20, 1, 20)
@@ -66,7 +73,6 @@ function AnimatedMenu:Create()
     shadow.SliceCenter = Rect.new(20, 20, 180, 180)
     shadow.Parent = frame
 
-    -- Title bar
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 50)
@@ -86,7 +92,6 @@ function AnimatedMenu:Create()
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.Parent = titleBar
 
-    -- Underline
     local underline = Instance.new("Frame")
     underline.Name = "Underline"
     underline.Size = UDim2.new(1, 0, 0, 2)
@@ -95,7 +100,6 @@ function AnimatedMenu:Create()
     underline.BorderSizePixel = 0
     underline.Parent = titleBar
 
-    -- Options container
     local container = Instance.new("ScrollingFrame")
     container.Name = "OptionsContainer"
     container.Size = UDim2.new(1, -40, 1, -70)
@@ -107,7 +111,6 @@ function AnimatedMenu:Create()
     container.CanvasSize = UDim2.new(0, 0, 0, #self.Options * 60 + 20)
     container.Parent = frame
 
-    -- Create option buttons
     for i, opt in ipairs(self.Options) do
         local btn = Instance.new("TextButton")
         btn.Name = "Option_" .. i
@@ -123,7 +126,6 @@ function AnimatedMenu:Create()
         btn.AutoButtonColor = false
         btn.Parent = container
 
-        -- Hover glow
         local glow = Instance.new("Frame")
         glow.Name = "Glow"
         glow.Size = UDim2.new(0, 4, 1, 0)
@@ -132,7 +134,6 @@ function AnimatedMenu:Create()
         glow.BackgroundTransparency = 1
         glow.Parent = btn
 
-        -- Hover effects
         btn.MouseEnter:Connect(function()
             game:TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 45, 65)}):Play()
             game:TweenService:Create(glow, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
@@ -142,7 +143,6 @@ function AnimatedMenu:Create()
             game:TweenService:Create(glow, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
         end)
 
-        -- Click ripple
         btn.MouseButton1Click:Connect(function()
             local ripple = Instance.new("Frame")
             ripple.Size = UDim2.new(0, 0, 0, 0)
@@ -167,13 +167,10 @@ function AnimatedMenu:Create()
     self.Frame = frame
 end
 
--- Animated show
 function AnimatedMenu:Show()
     if self.Open then return end
     self.Open = true
     self.Frame.Visible = true
-
-    -- Scale in from center
     self.Frame.Size = UDim2.new(0, 0, 0, 0)
     self.Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
     self.Frame.BackgroundTransparency = 1
@@ -184,7 +181,6 @@ function AnimatedMenu:Show()
         BackgroundTransparency = 0
     }):Play()
 
-    -- Fade in title
     local titleBar = self.Frame:FindFirstChild("TitleBar")
     if titleBar then
         local titleLabel = titleBar:FindFirstChild("TitleLabel")
@@ -197,7 +193,6 @@ function AnimatedMenu:Show()
     end
 end
 
--- Animated hide
 function AnimatedMenu:Hide()
     if not self.Open then return end
     self.Open = false
@@ -213,24 +208,15 @@ function AnimatedMenu:Hide()
     end)
 end
 
--- Toggle visibility
 function AnimatedMenu:Toggle()
-    if self.Open then
-        self:Hide()
-    else
-        self:Show()
-    end
+    if self.Open then self:Hide() else self:Show() end
 end
 
--- Destroy
 function AnimatedMenu:Destroy()
-    if self.ScreenGui then
-        self.ScreenGui:Destroy()
-    end
+    if self.ScreenGui then self.ScreenGui:Destroy() end
     self.Open = false
 end
 
--- Example usage (comment out if using loadstring)
 local menu = AnimatedMenu.new("Menu Principale", {
     "Gioca",
     "Impostazioni",
@@ -240,17 +226,15 @@ local menu = AnimatedMenu.new("Menu Principale", {
 })
 
 menu.OnOptionSelected = function(option, index)
-    print("Selezionato:", option, "[" .. index .. "]")
-    if option == "Esci" then
-        menu:Hide()
-    end
+    if option == "Esci" then menu:Hide() end
 end
 
+menu:Create()
 menu:Show()
 
--- Toggle with a key (e.g., RightShift)
-game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+local UserInputService = game:GetService("UserInputService")
+local onInput = UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         menu:Toggle()
     end
