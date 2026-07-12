@@ -18,37 +18,22 @@ function AnimatedMenu.new(title, options)
     return self
 end
 
-function AnimatedMenu:GetParent()
-    local parent
-    local success
-
-    success, parent = pcall(gethui)
-    if success and parent then return parent end
-
-    success, parent = pcall(function() return syn and syn.protect_gui and game:GetService("CoreGui") end)
-    if success and parent then return parent end
-
-    success, parent = pcall(function() return game:GetService("CoreGui") end)
-    if success and parent then return parent end
-
-    success, parent = pcall(function()
-        local p = game:GetService("Players").LocalPlayer
-        return p and p:WaitForChild("PlayerGui")
-    end)
-    if success and parent then return parent end
-
-    return game:GetService("CoreGui")
-end
-
 function AnimatedMenu:Create()
-    local parent = self:GetParent()
-
     self.ScreenGui = Instance.new("ScreenGui")
     self.ScreenGui.Name = "AnimatedMenu"
     self.ScreenGui.ResetOnSpawn = false
     self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     self.ScreenGui.DisplayOrder = 999
-    self.ScreenGui.Parent = parent
+    self.ScreenGui.IgnoreGuiInset = true
+
+    if gethui then
+        self.ScreenGui.Parent = gethui()
+    elseif syn and syn.protect_gui then
+        syn.protect_gui(self.ScreenGui)
+        self.ScreenGui.Parent = game.CoreGui
+    else
+        self.ScreenGui.Parent = game.CoreGui
+    end
 
     local frame = Instance.new("Frame")
     frame.Name = "MainFrame"
@@ -59,6 +44,8 @@ function AnimatedMenu:Create()
     frame.BackgroundTransparency = 1
     frame.ClipsDescendants = true
     frame.Visible = false
+    frame.Active = true
+    frame.Draggable = true
     frame.Parent = self.ScreenGui
 
     local shadow = Instance.new("ImageLabel")
@@ -233,7 +220,7 @@ menu:Create()
 menu:Show()
 
 local UserInputService = game:GetService("UserInputService")
-local onInput = UserInputService.InputBegan:Connect(function(input, gp)
+UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         menu:Toggle()
